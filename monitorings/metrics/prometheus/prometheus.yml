@@ -1,0 +1,168 @@
+global:
+  scrape_interval: 15s      # Интервал сбора метрик
+  evaluation_interval: 15s  # Интервал оценки правил
+  external_labels:
+    cluster: 'managed-cluster'
+    environment: 'production'
+    prometheus: 'external'
+
+# Правила алертов (опционально)
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# Конфигурация сбора метрик (scrape configs)
+scrape_configs:
+  # 1. Node Exporter - метрики нод Kubernetes
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: endpoints
+        api_server: YOUR_EKS_ENDPOINT  # Замените на ваш EKS endpoint
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name]
+        regex: 'monitoring;.*node-exporter.*'
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: 'metrics|http-metrics'
+        action: keep
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.*)
+    scheme: http
+    tls_config:
+      insecure_skip_verify: true
+
+  # 2. Kube State Metrics - метрики состояния Kubernetes объектов
+  - job_name: 'kube-state-metrics'
+    kubernetes_sd_configs:
+      - role: endpoints
+        api_server: YOUR_EKS_ENDPOINT
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    relabel_configs:
+      - source_labels: [meta_kubernetes_namespace, __meta_kubernetes_service_name]
+        regex: 'monitoring;kube-state-metrics'
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: 'http-metrics'
+        action: keep
+
+  # 3. Kubernetes API Server метрики
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+        api_server: YOUR_EKS_ENDPOINT
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      insecure_skip_verify: false
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        regex: 'default;kubernetes;https'
+        action: keep
+
+  # 4. Kubernetes Kubelet метрики
+  - job_name: 'kubernetes-kubelet'
+    kubernetes_sd_configs:
+      - role: node
+        api_server: YOUR_EKS_ENDPOINT
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      insecure_skip_verify: true
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address
+        replacement: 'kubernetes.default.svc:443'
+      - source_labels: [meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
+  # 5. Kubernetes cAdvisor метрики (контейнеры)
+  - job_name: 'kubernetes-cadvisor'
+    kubernetes_sd_configs:
+      - role: node
+        api_server: YOUR_EKS_ENDPOINT
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      insecure_skip_verify: true
+    relabel_configs:
+      - action: labelmap
+        regex: meta_kubernetes_node_label_(.+)
+      - target_label: __address
+        replacement: 'kubernetes.default.svc:443'
+      - source_labels: [meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+# 6. ServiceMonitor - автоматическое обнаружение сервисов с метриками
+  # Требует настройки Prometheus Operator в Kubernetes
+  - job_name: 'kubernetes-service-endpoints'
+    kubernetes_sd_configs:
+      - role: endpoints
+        api_server: YOUR_EKS_ENDPOINT
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    relabel_configs:
+      # Оставляем только endpoints с аннотацией prometheus.io/scrape: "true"
+      - source_labels: [meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Используем порт из аннотации или дефолтный
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        target_label: __meta_kubernetes_service_port
+        regex: (.+)
+      # Используем путь из аннотации или дефолтный
+      - source_labels: [__address, meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path
+        regex: ([^,]+)(?:,(.+))?;
+        replacement: ${2:/metrics}
+
+  # 7. PodMonitor - автоматическое обнаружение подов с метриками
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+        api_server: YOUR_EKS_ENDPOINT
+        tls_config:
+          ca_file: /etc/prometheus/certs/ca.crt
+        bearer_token_file: /etc/prometheus/certs/token
+    bearer_token_file: /etc/prometheus/certs/token
+    relabel_configs:
+      # Оставляем только поды с аннотацией prometheus.io/scrape: "true"
+      - source_labels: [meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Используем порт из аннотации
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+)
+        target_label: __meta_kubernetes_pod_container_port
+      # Используем путь из аннотации
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path
+        regex: (.+)

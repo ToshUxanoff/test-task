@@ -1,0 +1,20 @@
+- hosts: monitoring
+  become: true
+  vars:
+    node_version: "lts"
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Add ubuntu to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+

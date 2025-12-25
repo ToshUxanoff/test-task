@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-external-token
+  namespace: monitoring
+  annotations:
+    kubernetes.io/service-account.name: "prometheus-external"
+type: kubernetes.io/service-account-token

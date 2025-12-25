@@ -1,0 +1,43 @@
+alertmanager:
+  enabled: false
+grafana:
+  enabled: false
+  
+nodeExporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: NodePort
+    nodePort: 30100  # Порт для доступа к Node Exporter
+    port: 9100
+
+kubeStateMetrics:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  # Service для доступа извне кластера
+  service:
+    type: NodePort  # или LoadBalancer для AWS
+    nodePort: 30101  # Порт для доступа к Kube State Metrics
+    port: 8080
+
+# Prometheus Operator
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

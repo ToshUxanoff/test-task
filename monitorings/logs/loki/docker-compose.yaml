@@ -1,0 +1,26 @@
+# Docker Compose для запуска внешнего Loki
+# Использование: docker-compose up -d
+
+version: '3.8'
+
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: loki-external
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./config/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+
+volumes:
+  loki-data:
+    driver: local
+
+networks:
+  monitoring:
+    driver: bridge
