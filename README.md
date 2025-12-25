@@ -19,7 +19,7 @@ The goal is a **reproducible, auditable, scalable** backend platform.
 
 ---
 
-## ☁ Infrastructure (Terraform)
+## Infrastructure (Terraform)
 
 All infrastructure is provisioned using **Terraform**.
 
@@ -78,7 +78,8 @@ Never committed to the repository
 
 ## CI/CD Pipeline
 CI/CD is implemented using GitHub Actions.
-It is located in **realworld-example-app/.github/workflows/build-and-deploy.yml**
+You can find examples of ci/cd working in application's repo: https://github.com/ToshUxanoff/realworld-example-app
+Github Actions config is located in **realworld-example-app/.github/workflows/build-and-deploy.yml**
 Helm configs are located in **realworld-example-app/helm**
 ### Pipeline steps
 - Checkout repository
