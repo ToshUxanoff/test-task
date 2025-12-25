@@ -15,7 +15,7 @@ The goal is a **reproducible, auditable, scalable** backend platform.
 
 ## High-Level Architecture
 
-![Architecture diagram](docs/architecture.png)
+![Architecture diagram](docs/incode-architecture.png)
 
 ---
 
